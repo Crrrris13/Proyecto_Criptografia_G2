@@ -1,312 +1,296 @@
 import streamlit as st
-from rsa_core import ErrorRSA, desencriptar, encriptar, parsear_entero
+
+from rsa_core import ErrorRSA, parsear_entero, encriptar, desencriptar
 
 
-def entre_comillas(texto: str) -> str:
+def entre_comillas(texto):
     return f'"{texto}"'
 
 
-def caracteres_visibles(texto: str) -> str:
+def caracteres_visibles(texto):
     return " ".join(f"'{ch}'" for ch in texto)
 
 
-def init_state() -> None:
+def init_state():
     defaults = {
-        "p_val": "367",
-        "q_val": "373",
-        "e_val": "17",
-        "msg_val": "RSA",
-        "enc_result": None,
-        "enc_error": "",
-        "enc_copy_c": "",
-        "dec_c_val": "",
-        "dec_l_val": "",
-        "dec_p_val": "367",
-        "dec_q_val": "373",
-        "dec_e_val": "17",
-        "dec_result": None,
-        "dec_error": "",
-        "dec_copy_m": "",
-        "modo_actual": "Encriptar",
+        "p": "367",
+        "q": "373",
+        "e": "17",
+        "mensaje_enc": "RSA",
+        "res_enc": None,
+        "err_enc": "",
+        "copia_enc": "",
+        "cifrado_dec": "",
+        "L_dec": "",
+        "p_dec": "367",
+        "q_dec": "373",
+        "e_dec": "17",
+        "res_dec": None,
+        "err_dec": "",
+        "copia_dec": "",
+        "pestana": "Encriptar",
     }
-    for k, v in defaults.items():
-        if k not in st.session_state:
-            st.session_state[k] = v
+    for clave, valor in defaults.items():
+        if clave not in st.session_state:
+            st.session_state[clave] = valor
 
 
-def leer_parametros(p_txt: str, q_txt: str, e_txt: str):
-    p = parsear_entero(p_txt, "p")
-    q = parsear_entero(q_txt, "q")
-    e = parsear_entero(e_txt, "e")
+def leer_parametros(p_str, q_str, e_str):
+    p = parsear_entero(p_str, "p")
+    q = parsear_entero(q_str, "q")
+    e = parsear_entero(e_str, "e")
     return p, q, e
 
 
-def fila_parametros(prefix: str, p_key: str, q_key: str, e_key: str):
-    c_lbl, c_p, c_q, c_e = st.columns([1.2, 1.5, 1.5, 1.5])
-    with c_lbl:
-        st.markdown("**Parámetros:**")
-    with c_p:
-        p_val = st.text_input("p:", value=st.session_state[p_key], key=f"{prefix}_p")
-        st.session_state[p_key] = p_val
-    with c_q:
-        q_val = st.text_input("q:", value=st.session_state[q_key], key=f"{prefix}_q")
-        st.session_state[q_key] = q_val
-    with c_e:
-        e_val = st.text_input("e:", value=st.session_state[e_key], key=f"{prefix}_e")
-        st.session_state[e_key] = e_val
-
-
-def campo_readonly(etiqueta: str, valor: str, key: str) -> None:
-    c_etq, c_val = st.columns([1.4, 3.6])
-    with c_etq:
-        st.markdown(f"**{etiqueta}**")
-    with c_val:
-        st.text_input(
-            etiqueta,
-            value=valor,
-            disabled=True,
-            label_visibility="collapsed",
-            key=key,
+def fila_parametros(clave_p, clave_q, clave_e, sufijo):
+    st.markdown("**Parámetros:**")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.session_state[clave_p] = st.text_input(
+            "p:", value=st.session_state[clave_p], key=f"p_{sufijo}"
+        )
+    with c2:
+        st.session_state[clave_q] = st.text_input(
+            "q:", value=st.session_state[clave_q], key=f"q_{sufijo}"
+        )
+    with c3:
+        st.session_state[clave_e] = st.text_input(
+            "e:", value=st.session_state[clave_e], key=f"e_{sufijo}"
         )
 
 
-def render_encriptar() -> None:
+def mostrar_campos_resultado(titulo, pares, sufijo):
     with st.container(border=True):
-        c_lbl, c_txt = st.columns([1.2, 4.5])
-        with c_lbl:
-            st.markdown("**Mensaje M:**")
-        with c_txt:
-            st.session_state["msg_val"] = st.text_area(
-                "Mensaje M:",
-                value=st.session_state["msg_val"],
-                height=80,
-                label_visibility="collapsed",
-                key="enc_msg_area",
-            )
+        st.markdown(f"**{titulo}**")
+        for idx, (etiqueta, valor) in enumerate(pares):
+            c_etq, c_val = st.columns([1.4, 3.6])
+            with c_etq:
+                st.markdown(etiqueta)
+            with c_val:
+                st.text_input(
+                    etiqueta,
+                    value=valor,
+                    disabled=True,
+                    label_visibility="collapsed",
+                    key=f"out_{sufijo}_{idx}",
+                )
 
-        fila_parametros("enc", "p_val", "q_val", "e_val")
 
-    b1, b2, b3, _ = st.columns([1.2, 1.2, 2.0, 2.5])
+def mostrar_tabla_proceso(filas_dict):
+    with st.container(border=True):
+        st.markdown("**Detalle del proceso**")
+        st.dataframe(filas_dict, use_container_width=True, hide_index=True)
+
+
+def panel_encriptar():
+    with st.container(border=True):
+        st.session_state["mensaje_enc"] = st.text_area(
+            "Mensaje M:",
+            value=st.session_state["mensaje_enc"],
+            height=85,
+            key="txt_m_enc",
+        )
+        fila_parametros("p", "q", "e", "enc")
+
+    b1, b2, b3, _ = st.columns([1.2, 1.2, 2.0, 2.6])
     with b1:
-        ejecutar_click = st.button("Encriptar", use_container_width=True, key="btn_enc")
+        clic_enc = st.button("Encriptar", use_container_width=True, key="btn_encriptar")
     with b2:
-        copiar_click = st.button("Copiar C", use_container_width=True, key="btn_copiar_c")
+        clic_copiar = st.button("Copiar C", use_container_width=True, key="btn_copiar_c")
     with b3:
-        enviar_click = st.button(
-            "Enviar a Desencriptar", use_container_width=True, key="btn_enviar_dec"
+        clic_enviar = st.button(
+            "Enviar a Desencriptar", use_container_width=True, key="btn_enviar"
         )
 
-    if ejecutar_click:
-        st.session_state["enc_error"] = ""
-        st.session_state["enc_copy_c"] = ""
+    if clic_enc:
+        st.session_state["err_enc"] = ""
+        st.session_state["copia_enc"] = ""
         try:
             p, q, e = leer_parametros(
-                st.session_state["p_val"],
-                st.session_state["q_val"],
-                st.session_state["e_val"],
+                st.session_state["p"],
+                st.session_state["q"],
+                st.session_state["e"],
             )
-            st.session_state["enc_result"] = encriptar(
-                st.session_state["msg_val"], p, q, e
-            )
+            mensaje = st.session_state["mensaje_enc"]
+            st.session_state["res_enc"] = encriptar(mensaje, p, q, e)
         except ErrorRSA as ex:
-            st.session_state["enc_result"] = None
-            st.session_state["enc_error"] = str(ex)
+            st.session_state["res_enc"] = None
+            st.session_state["err_enc"] = str(ex)
         except Exception as ex:
-            st.session_state["enc_result"] = None
-            st.session_state["enc_error"] = f"Error inesperado: {ex}"
+            st.session_state["res_enc"] = None
+            st.session_state["err_enc"] = f"Error inesperado: {ex}"
 
-    if copiar_click:
-        if st.session_state["enc_result"]:
-            st.session_state["enc_copy_c"] = st.session_state["enc_result"].cifrado
+    if clic_copiar:
+        if st.session_state["res_enc"]:
+            st.session_state["copia_enc"] = st.session_state["res_enc"].cifrado
 
-    if enviar_click:
-        r = st.session_state["enc_result"]
+    if clic_enviar:
+        r = st.session_state["res_enc"]
         if not r:
-            st.session_state["enc_error"] = "Primero encripta un mensaje válido."
+            st.session_state["err_enc"] = "Primero encripta un mensaje válido."
         else:
-            st.session_state["dec_c_val"] = r.cifrado
-            st.session_state["dec_l_val"] = str(r.L)
-            st.session_state["dec_p_val"] = str(r.p)
-            st.session_state["dec_q_val"] = str(r.q)
-            st.session_state["dec_e_val"] = str(r.e)
-            st.session_state["dec_error"] = ""
-            st.session_state["modo_actual"] = "Desencriptar"
+            st.session_state["cifrado_dec"] = r.cifrado
+            st.session_state["L_dec"] = str(r.L)
+            st.session_state["p_dec"] = str(r.p)
+            st.session_state["q_dec"] = str(r.q)
+            st.session_state["e_dec"] = str(r.e)
+            st.session_state["err_dec"] = ""
+            st.session_state["pestana"] = "Desencriptar"
             st.rerun()
 
-    if st.session_state["enc_error"]:
-        st.error("⚠ " + st.session_state["enc_error"])
+    if st.session_state["err_enc"]:
+        st.markdown(f":red[⚠ {st.session_state['err_enc']}]")
 
-    if st.session_state["enc_copy_c"]:
-        st.caption("Cifrado C listo para copiar:")
-        st.code(st.session_state["enc_copy_c"], language=None)
+    if st.session_state["copia_enc"]:
+        st.code(st.session_state["copia_enc"], language=None)
 
-    r = st.session_state["enc_result"]
+    r = st.session_state["res_enc"]
     if r is not None:
-        with st.container(border=True):
-            st.markdown("### Resultado")
-            relleno_txt = (
-                "Sí: se agregó 1 espacio al final (L es impar)"
-                if r.relleno
-                else "No (L es par)"
-            )
-            campo_readonly("Cifrado C:", r.cifrado, "res_enc_c")
-            campo_readonly("Longitud L:", str(r.L), "res_enc_l")
-            campo_readonly("Llave pública (e, n):", f"({r.e}, {r.n})", "res_enc_llave")
-            campo_readonly("n = p·q:", str(r.n), "res_enc_n")
-            campo_readonly("φ = (p−1)(q−1):", str(r.phi), "res_enc_phi")
-            campo_readonly("Relleno:", relleno_txt, "res_enc_relleno")
-            campo_readonly(
-                "Mensaje con relleno:",
-                entre_comillas(r.mensaje_relleno),
-                "res_enc_con_relleno",
-            )
-
-        with st.container(border=True):
-            st.markdown("### Detalle del proceso")
-            filas = [
-                {
-                    "Bloque": f.indice,
-                    "Caracteres": caracteres_visibles(f.caracteres),
-                    "ASCII (3 dígitos)": f"{f.codigos[0]:03d} {f.codigos[1]:03d}",
-                    "m (antes de cifrar)": f"{f.m:06d}",
-                    "c = m^e mod n": f.c,
-                    "c (6 dígitos)": f"{f.c:06d}",
-                }
-                for f in r.filas
-            ]
-            st.dataframe(filas, use_container_width=True, hide_index=True)
+        relleno_texto = (
+            "Sí: se agregó 1 espacio al final (L es impar)"
+            if r.relleno
+            else "No (L es par)"
+        )
+        mostrar_campos_resultado(
+            "Resultado",
+            [
+                ("Cifrado C:", r.cifrado),
+                ("Longitud L:", str(r.L)),
+                ("Llave pública (e, n):", f"({r.e}, {r.n})"),
+                ("n = p·q:", str(r.n)),
+                ("φ = (p−1)(q−1):", str(r.phi)),
+                ("Relleno:", relleno_texto),
+                ("Mensaje con relleno:", entre_comillas(r.mensaje_relleno)),
+            ],
+            "enc",
+        )
+        filas_dict = [
+            {
+                "Bloque": f.indice,
+                "Caracteres": caracteres_visibles(f.caracteres),
+                "ASCII (3 dígitos)": f"{f.codigos[0]:03d} {f.codigos[1]:03d}",
+                "m (antes de cifrar)": f"{f.m:06d}",
+                "c = m^e mod n": f.c,
+                "c (6 dígitos)": f"{f.c:06d}",
+            }
+            for f in r.filas
+        ]
+        mostrar_tabla_proceso(filas_dict)
 
 
-def render_desencriptar() -> None:
+def panel_desencriptar():
     with st.container(border=True):
-        c_lbl, c_txt = st.columns([1.2, 4.5])
-        with c_lbl:
-            st.markdown("**Cifrado C:**")
-        with c_txt:
-            st.session_state["dec_c_val"] = st.text_area(
-                "Cifrado C:",
-                value=st.session_state["dec_c_val"],
-                height=80,
-                label_visibility="collapsed",
-                key="dec_c_area",
-            )
-
-        l_lbl, l_inp, _ = st.columns([1.2, 1.5, 3.0])
-        with l_lbl:
-            st.markdown("**Longitud L:**")
-        with l_inp:
-            st.session_state["dec_l_val"] = st.text_input(
-                "Longitud L:",
-                value=st.session_state["dec_l_val"],
-                label_visibility="collapsed",
-                key="dec_l_input",
-            )
-
-        fila_parametros("dec", "dec_p_val", "dec_q_val", "dec_e_val")
+        st.session_state["cifrado_dec"] = st.text_area(
+            "Cifrado C:",
+            value=st.session_state["cifrado_dec"],
+            height=85,
+            key="txt_c_dec",
+        )
+        st.session_state["L_dec"] = st.text_input(
+            "Longitud L:",
+            value=st.session_state["L_dec"],
+            key="txt_l_dec",
+        )
+        fila_parametros("p_dec", "q_dec", "e_dec", "dec")
 
     b1, b2, _ = st.columns([1.3, 1.2, 4.5])
     with b1:
-        ejecutar_click = st.button("Desencriptar", use_container_width=True, key="btn_dec")
+        clic_dec = st.button(
+            "Desencriptar", use_container_width=True, key="btn_desencriptar"
+        )
     with b2:
-        copiar_click = st.button("Copiar M", use_container_width=True, key="btn_copiar_m")
+        clic_copiar = st.button("Copiar M", use_container_width=True, key="btn_copiar_m")
 
-    if ejecutar_click:
-        st.session_state["dec_error"] = ""
-        st.session_state["dec_copy_m"] = ""
+    if clic_dec:
+        st.session_state["err_dec"] = ""
+        st.session_state["copia_dec"] = ""
         try:
             p, q, e = leer_parametros(
-                st.session_state["dec_p_val"],
-                st.session_state["dec_q_val"],
-                st.session_state["dec_e_val"],
+                st.session_state["p_dec"],
+                st.session_state["q_dec"],
+                st.session_state["e_dec"],
             )
-            st.session_state["dec_result"] = desencriptar(
-                st.session_state["dec_c_val"],
-                st.session_state["dec_l_val"],
+            st.session_state["res_dec"] = desencriptar(
+                st.session_state["cifrado_dec"],
+                st.session_state["L_dec"],
                 p,
                 q,
                 e,
             )
         except ErrorRSA as ex:
-            st.session_state["dec_result"] = None
-            st.session_state["dec_error"] = str(ex)
+            st.session_state["res_dec"] = None
+            st.session_state["err_dec"] = str(ex)
         except Exception as ex:
-            st.session_state["dec_result"] = None
-            st.session_state["dec_error"] = f"Error inesperado: {ex}"
+            st.session_state["res_dec"] = None
+            st.session_state["err_dec"] = f"Error inesperado: {ex}"
 
-    if copiar_click:
-        if st.session_state["dec_result"]:
-            st.session_state["dec_copy_m"] = st.session_state["dec_result"].mensaje
+    if clic_copiar:
+        if st.session_state["res_dec"]:
+            st.session_state["copia_dec"] = st.session_state["res_dec"].mensaje
 
-    if st.session_state["dec_error"]:
-        st.error("⚠ " + st.session_state["dec_error"])
+    if st.session_state["err_dec"]:
+        st.markdown(f":red[⚠ {st.session_state['err_dec']}]")
 
-    if st.session_state["dec_copy_m"]:
-        st.caption("Mensaje M listo para copiar:")
-        st.code(st.session_state["dec_copy_m"], language=None)
+    if st.session_state["copia_dec"]:
+        st.code(st.session_state["copia_dec"], language=None)
 
-    r = st.session_state["dec_result"]
+    r = st.session_state["res_dec"]
     if r is not None:
-        with st.container(border=True):
-            st.markdown("### Resultado")
-            relleno_txt = (
-                "Sí: se retiró exactamente el último carácter (espacio de relleno)"
-                if r.relleno
-                else "No (L es par): no se retiró ningún carácter"
-            )
-            campo_readonly("Mensaje M:", r.mensaje, "res_dec_m")
-            campo_readonly("M entre comillas:", entre_comillas(r.mensaje), "res_dec_mq")
-            campo_readonly("Exponente privado d:", str(r.d), "res_dec_d")
-            campo_readonly("Llave privada (d, n):", f"({r.d}, {r.n})", "res_dec_llave")
-            campo_readonly("n = p·q:", str(r.n), "res_dec_n")
-            campo_readonly("φ = (p−1)(q−1):", str(r.phi), "res_dec_phi")
-            campo_readonly("Longitud L:", str(r.L), "res_dec_l")
-            campo_readonly("Relleno:", relleno_txt, "res_dec_relleno")
-            campo_readonly(
-                "Texto recuperado (con relleno):",
-                entre_comillas(r.texto_recuperado),
-                "res_dec_con_relleno",
-            )
-
-        with st.container(border=True):
-            st.markdown("### Detalle del proceso")
-            filas = [
-                {
-                    "Bloque": f.indice,
-                    "c (6 dígitos)": f"{f.c:06d}",
-                    "m = c^d mod n": f.m,
-                    "m (6 dígitos)": f"{f.m:06d}",
-                    "ASCII": f"{f.codigos[0]:03d} {f.codigos[1]:03d}",
-                    "Caracteres": caracteres_visibles(f.caracteres),
-                }
-                for f in r.filas
-            ]
-            st.dataframe(filas, use_container_width=True, hide_index=True)
+        relleno_texto = (
+            "Sí: se retiró exactamente el último carácter (espacio de relleno)"
+            if r.relleno
+            else "No (L es par): no se retiró ningún carácter"
+        )
+        mostrar_campos_resultado(
+            "Resultado",
+            [
+                ("Mensaje M:", r.mensaje),
+                ("M entre comillas:", entre_comillas(r.mensaje)),
+                ("Exponente privado d:", str(r.d)),
+                ("Llave privada (d, n):", f"({r.d}, {r.n})"),
+                ("n = p·q:", str(r.n)),
+                ("φ = (p−1)(q−1):", str(r.phi)),
+                ("Longitud L:", str(r.L)),
+                ("Relleno:", relleno_texto),
+                ("Texto recuperado (con relleno):", entre_comillas(r.texto_recuperado)),
+            ],
+            "dec",
+        )
+        filas_dict = [
+            {
+                "Bloque": f.indice,
+                "c (6 dígitos)": f"{f.c:06d}",
+                "m = c^d mod n": f.m,
+                "m (6 dígitos)": f"{f.m:06d}",
+                "ASCII": f"{f.codigos[0]:03d} {f.codigos[1]:03d}",
+                "Caracteres": caracteres_visibles(f.caracteres),
+            }
+            for f in r.filas
+        ]
+        mostrar_tabla_proceso(filas_dict)
 
 
-def main() -> None:
-    st.set_page_config(
-        page_title="RSA – MM2015 Matemática Discreta 1",
-        layout="wide",
-    )
+def main():
+    st.set_page_config(page_title="RSA – MM2015 Matemática Discreta 1", layout="wide")
     init_state()
-    st.markdown("### RSA – MM2015 Matemática Discreta 1")
+    st.subheader("RSA – MM2015 Matemática Discreta 1")
 
     seleccion = st.radio(
-        "Pestañas",
+        "Sección",
         ["Encriptar", "Desencriptar"],
-        index=0 if st.session_state["modo_actual"] == "Encriptar" else 1,
+        index=0 if st.session_state["pestana"] == "Encriptar" else 1,
         horizontal=True,
         label_visibility="collapsed",
-        key="selector_pestana",
+        key="radio_pestana",
     )
-    if seleccion != st.session_state["modo_actual"]:
-        st.session_state["modo_actual"] = seleccion
+    if seleccion != st.session_state["pestana"]:
+        st.session_state["pestana"] = seleccion
         st.rerun()
 
-    if st.session_state["modo_actual"] == "Encriptar":
-        render_encriptar()
+    if st.session_state["pestana"] == "Encriptar":
+        panel_encriptar()
     else:
-        render_desencriptar()
+        panel_desencriptar()
 
 
 if __name__ == "__main__":
